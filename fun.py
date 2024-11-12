@@ -21,10 +21,6 @@ dict_aptitud_color = {
     4: '#138848'
 }
 
-def dict_aptitud_label():
-
-    return
-
 def get_datasets_names():
     dict_product, list_product, list_nameDatasets, list_emojiProduct = {}, [], [], []
 
