@@ -30,14 +30,6 @@ list_dpto = fun.get_list_dpto()
 #with open("app\style.css") as css:
 #    st.markdown( f'<style>{css.read()}</style>' , unsafe_allow_html= True)
 
-if 'options_products' not in st.session_state:
-    st.session_state.options_products = None
-if 'options_dpto' not in st.session_state:
-    st.session_state.options_dpto = None
-if 'options_mpio' not in st.session_state:
-    st.session_state.options_mpio = None
-if 'mapa' not in st.session_state:
-    st.session_state.mapa = None
 
 #with st.sidebar:
 #    st.title("🌿**AgroSmart-App**")
@@ -84,26 +76,6 @@ with tap1:
                     geo_j.add_to(m)
 
                 st_data = st_folium(m, width=700, height=400)
-
-            
-            
-    #if st.session_state.mapa is not None:
-    #    st_folium(st.session_state.mapa, width=700, height=400)
-            
-    """   
-            with st.container(border=True):
-                m = folium.Map(location=[centroid_mpio[1], centroid_mpio[0]], zoom_start=10, tiles="CartoDB positron")
-
-                for _, r in gdf_openDataMpio.iterrows():
-                    sim_geo = gpd.GeoSeries(r['geometry'])
-                    geo_j = sim_geo.to_json()
-                    geo_j = folium.GeoJson(data=geo_j,
-                                        style_function=style_function(r['COLOR']))
-                    folium.Popup('{0} \nÁrea(he): {1}'.format(dict_aptitud_label[r['APTITUD']], r['AREA_HECTAREAS'])).add_to(geo_j)
-                    geo_j.add_to(m)
-
-                st_data = st_folium(m, width=700, height=400)
-    """
                 
 
 with tap2:
@@ -122,8 +94,6 @@ with tap2:
             gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
             df_areaOpenDataDpto = fun.get_df_areaOpenDataDpto(gdf_openDataDpto, gdf_DaneDpto, 'DPTO_AREA')
             df_topDptoMpio = fun.get_df_topDptoMpio(gdf_openDataDpto, gdf_DaneDptoMpio)
-
-            st.dataframe(df_topDptoMpio)
              
             sub2_tab1, sub2_tab2, sub2_tab3 = st.tabs(['🗺️ **Distribución geográfica**',
                                                        '📊 **Distribución porcentual**',
