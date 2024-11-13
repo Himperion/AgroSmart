@@ -27,53 +27,92 @@ dict_aptitud_label = {
 dict_product, list_nameProduct, list_nameDatasets, list_emojiProduct = fun.get_datasets_names()
 list_dpto = fun.get_list_dpto()
 
+#with open("app\style.css") as css:
+#    st.markdown( f'<style>{css.read()}</style>' , unsafe_allow_html= True)
+
+if 'options_products' not in st.session_state:
+    st.session_state.options_products = None
+if 'options_dpto' not in st.session_state:
+    st.session_state.options_dpto = None
+if 'options_mpio' not in st.session_state:
+    st.session_state.options_mpio = None
+if 'mapa' not in st.session_state:
+    st.session_state.mapa = None
+
+#with st.sidebar:
+#    st.title("🌿**AgroSmart-App**")
+    
 st.markdown("# 🌿AgroSmart")
 
-tap1, tap2, tap3 = st.tabs(['Municipal', 'Departamental', 'Localizado'])
+tap1, tap2, tap3 = st.tabs(['**Municipal**', '**Departamental**', '**Localizado**'])
 
 with tap1:
-    #with st.container(border=True):
-    with st.form('form_1'):
-        options_products = st.selectbox(label='Aptitud agropecuaria:', options=list_emojiProduct, index=18)
-        options_dpto = st.selectbox(label='Departamento:', options=list_dpto, index=26)
+    options_products, options_dpto = None, None
+    with st.container(border=True):
+        options_products = st.selectbox(label='**Aptitud agropecuaria:**', options=list_emojiProduct, index=18)
+        options_dpto = st.selectbox(label='**Departamento:**', options=list_dpto, index=26)
 
-        nameDataset, nameProduct = fun.from_emojiProduct_to_nameDataset(options_products, list_emojiProduct, list_nameDatasets, list_nameProduct)
-        dpto_code = fun.get_dpto_code(options_dpto)
-        gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
-        dict_Mpio_MpioCode = fun.get_dict_Mpio_MpioCode(gdf_openDataDpto)
+    if options_products is not None and options_dpto is not None:
+        with st.form('form_1'):
 
-        options_mpio = st.selectbox(label='Municipio:', options=[key for key in dict_Mpio_MpioCode], index=None,
-                                    placeholder='Seleccione una opción')
+            nameDataset, nameProduct = fun.from_emojiProduct_to_nameDataset(options_products, list_emojiProduct, list_nameDatasets, list_nameProduct)
+            dpto_code = fun.get_dpto_code(options_dpto)
+            gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
+            dict_Mpio_MpioCode = fun.get_dict_Mpio_MpioCode(gdf_openDataDpto)
 
-
-        submitted = st.form_submit_button('Aceptar')
-
-        if submitted and options_mpio is not None:
-            mpio_code = dict_Mpio_MpioCode[options_mpio]
+            options_mpio = st.selectbox(label='**Municipio:**', options=[key for key in dict_Mpio_MpioCode], index=None,
+                                        placeholder='Seleccione una opción')
             
-            gdf_openDataMpio = fun.get_gdf_openDataMpio(gdf_openDataDpto, mpio_code)
+            submitted = st.form_submit_button('**Aceptar**')
+    
+            if submitted:
+                mpio_code = dict_Mpio_MpioCode[options_mpio]
+                
+                gdf_openDataMpio = fun.get_gdf_openDataMpio(gdf_openDataDpto, mpio_code)
+                gdf_DaneMpio = fun.get_gdf_DaneMpio(dpto_code, mpio_code)
 
-            m = folium.Map(location=[4.36, -74.04], zoom_start=6, tiles="CartoDB positron")
+                centroid_mpio = [round(x, 3) for x in gdf_DaneMpio["CENTROID"].iloc[0].coords[0]]
 
-            for _, r in gdf_openDataMpio.iterrows():
-                #sim_geo = gpd.GeoSeries(r['THE_GEOM']).simplify(tolerance=0.0001)
-                sim_geo = gpd.GeoSeries(r['geometry'])
-                geo_j = sim_geo.to_json()
-                geo_j = folium.GeoJson(data=geo_j,
-                                       style_function=style_function(r['COLOR']))
-                folium.Popup('{0} \nÁrea(he): {1}'.format(dict_aptitud_label[r['APTITUD']], r['AREA_HECTAREAS'])).add_to(geo_j)
-                geo_j.add_to(m)
+                m = folium.Map(location=[centroid_mpio[1], centroid_mpio[0]], zoom_start=9, tiles="CartoDB positron")
 
-            st_data = st_folium(m, width=700, height=500)
+                for _, r in gdf_openDataMpio.iterrows():
+                    sim_geo = gpd.GeoSeries(r['geometry'])
+                    geo_j = sim_geo.to_json()
+                    geo_j = folium.GeoJson(data=geo_j,
+                                            style_function=style_function(r['COLOR']))
+                    folium.Popup('{0} \nÁrea(he): {1}'.format(dict_aptitud_label[r['APTITUD']], r['AREA_HECTAREAS'])).add_to(geo_j)
+                    geo_j.add_to(m)
+
+                st_data = st_folium(m, width=700, height=400)
+
             
+            
+    #if st.session_state.mapa is not None:
+    #    st_folium(st.session_state.mapa, width=700, height=400)
+            
+    """   
+            with st.container(border=True):
+                m = folium.Map(location=[centroid_mpio[1], centroid_mpio[0]], zoom_start=10, tiles="CartoDB positron")
+
+                for _, r in gdf_openDataMpio.iterrows():
+                    sim_geo = gpd.GeoSeries(r['geometry'])
+                    geo_j = sim_geo.to_json()
+                    geo_j = folium.GeoJson(data=geo_j,
+                                        style_function=style_function(r['COLOR']))
+                    folium.Popup('{0} \nÁrea(he): {1}'.format(dict_aptitud_label[r['APTITUD']], r['AREA_HECTAREAS'])).add_to(geo_j)
+                    geo_j.add_to(m)
+
+                st_data = st_folium(m, width=700, height=400)
+    """
+                
 
 with tap2:
     with st.form('form_2'):
-        options_products = st.selectbox(label='Aptitud agropecuaria:', options=list_emojiProduct, index=18)
-        options_dpto = st.selectbox(label='Departamento:', options=list_dpto, index=26)
+        options_products = st.selectbox(label='**Aptitud agropecuaria:**', options=list_emojiProduct, index=18)
+        options_dpto = st.selectbox(label='**Departamento:**', options=list_dpto, index=26)
         option_croquis_mpio = st.checkbox('Ver división municipal del departamento')
 
-        submitted = st.form_submit_button('Aceptar')
+        submitted = st.form_submit_button('**Aceptar**')
 
         if submitted:
             nameDataset, nameProduct = fun.from_emojiProduct_to_nameDataset(options_products, list_emojiProduct, list_nameDatasets, list_nameProduct)
@@ -83,6 +122,8 @@ with tap2:
             gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
             df_areaOpenDataDpto = fun.get_df_areaOpenDataDpto(gdf_openDataDpto, gdf_DaneDpto, 'DPTO_AREA')
             df_topDptoMpio = fun.get_df_topDptoMpio(gdf_openDataDpto, gdf_DaneDptoMpio)
+
+            st.dataframe(df_topDptoMpio)
              
             sub2_tab1, sub2_tab2, sub2_tab3 = st.tabs(['🗺️ **Distribución geográfica**',
                                                        '📊 **Distribución porcentual**',

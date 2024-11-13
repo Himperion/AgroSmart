@@ -87,6 +87,15 @@ def get_gdf_DaneDptoMpio(dpto_code)-> gpd.GeoDataFrame:
 
     return gdf_DaneDptoMpio
 
+def get_gdf_DaneMpio(dpto_code, mpio_code) -> gpd.GeoDataFrame:
+
+    gdf_DaneMpio = gpd.read_file('datasets/geoportal_DANE/MGN_ADM_MPIO_GRAFICO.gpkg')
+    gdf_DaneMpio = gdf_DaneMpio[gdf_DaneMpio['DPTO_CODE'] == dpto_code]
+    gdf_DaneMpio = gdf_DaneMpio[gdf_DaneMpio['MPIO_CODE'] == mpio_code]
+    gdf_DaneMpio["CENTROID"] = gdf_DaneMpio.centroid
+
+    return gdf_DaneMpio
+
 def get_gdf_openDataDpto(nameDataset: str, nameDpto) -> gpd.GeoDataFrame:
 
     gdf_openDataDpto = gpd.read_file(f'datasets/datos_abiertos/{nameDpto}/{nameDataset}.gpkg')
