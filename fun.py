@@ -5,26 +5,54 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-dict_aptitud_label = {
-    0: 'Exclusión legal',
-    1: 'No apta',
-    2: 'Aptitud baja',
-    3: 'Aptitud media',
-    4: 'Aptitud alta'
+font = {
+    'url': "https://fonts.googleapis.com/css2?family=Mansalva&display=swap",
+    'font_family': "Mansalva"
 }
 
-dict_aptitud_color = {
-    0: '#C4C4C4',
-    1: '#E44432',
-    2: '#FCC070',
-    3: '#79C162',
-    4: '#138848'
-}
+def get_str_GoogleFonts():
+
+    custom_font = f"""
+    <style>
+    @import url({font['url']});
+    .custom-font {{
+        font-family: '{font['font_family']}', sans-serif;
+    }}
+    </style>
+    """
+
+    return custom_font
+
+def get_dict_customFont(body):
+
+    return {
+        'body': f"<h1 class='custom-font'>{body}</h1>",
+        'unsafe_allow_html': True
+    }
+
+def get_dicts_aptitude(dict_aptitude: dict):
+
+    dict_aptitudeLabel, dict_aptitudeColor, dict_aptitudeEmojin = {}, {}, {}
+
+    for key, value in dict_aptitude.items():
+        dict_aptitudeLabel[key] = value['label']
+        dict_aptitudeColor[key] = value['color']
+        dict_aptitudeEmojin[key] = value['emojin']
+        
+    return dict_aptitudeLabel, dict_aptitudeColor, dict_aptitudeEmojin
+
+def get_str_markdownLabelAptitude(dict_aptitudeValue: dict) -> str:
+
+    return f"**{dict_aptitudeValue['emojin']} <span style='color: {dict_aptitudeValue['color']};'>{dict_aptitudeValue['label']}</span>**: {dict_aptitudeValue['description']}"
+
+def get_list_markdownLabelAptitude(dict_aptitude: dict) -> list:
+
+    return [get_str_markdownLabelAptitude(dict_aptitude[4-i]) for i in range(0,len(dict_aptitude),1)]
 
 def get_datasets_names():
     dict_product, list_product, list_nameDatasets, list_emojiProduct = {}, [], [], []
 
-    with open('datasets_names.yaml', 'r') as archivo:
+    with open('dicts/datasets_names.yaml', 'r') as archivo:
         dict_product = yaml.safe_load(archivo)
 
     for key, value in dict_product.items():
@@ -112,21 +140,21 @@ def get_gdf_areaDane(gdf_dane: gpd.GeoDataFrame, column_dane_area: str) -> float
 
     return gdf_dane[column_dane_area].iloc[0]
 
-def get_df_areaOpenDataDpto(gdf_openData: gpd.GeoDataFrame, gdf_dane: gpd.GeoDataFrame, column_dane_area: str) -> pd.DataFrame:
+def get_df_areaOpenDataDpto(gdf_openData: gpd.GeoDataFrame, gdf_dane: gpd.GeoDataFrame, column_dane_area: str, dict_aptitudeLabel: dict, dict_aptitudeColor: dict) -> pd.DataFrame:
 
     area_dane = get_gdf_areaDane(gdf_dane, column_dane_area)
 
     gdf_area = gdf_openData.groupby('APTITUD')['AREA_HECTAREAS'].sum().reset_index()
     gdf_area['AREA_KM2'] = gdf_area['AREA_HECTAREAS']*0.01
     gdf_area['AREA_PERCENT'] = (gdf_area['AREA_KM2']/area_dane)*100
-    gdf_area['APTITUD_LABEL'] = gdf_area['APTITUD'].map(dict_aptitud_label)
-    gdf_area['COLOR'] = gdf_area['APTITUD'].map(dict_aptitud_color)
+    gdf_area['APTITUD_LABEL'] = gdf_area['APTITUD'].map(dict_aptitudeLabel)
+    gdf_area['COLOR'] = gdf_area['APTITUD'].map(dict_aptitudeColor)
 
     return gdf_area
 
-def get_df_topDptoMpio(gdf_openDataDpto: gpd.GeoDataFrame, gdf_DaneDptoMpio: gpd.GeoDataFrame) -> pd.DataFrame:
+def get_df_aptitudeDptoMpio(gdf_openDataDpto: gpd.GeoDataFrame, gdf_DaneDptoMpio: gpd.GeoDataFrame, numaptitude: int) -> pd.DataFrame:
 
-    gdf_openDataDpto = gdf_openDataDpto[gdf_openDataDpto['APTITUD'] == 4]
+    gdf_openDataDpto = gdf_openDataDpto[gdf_openDataDpto['APTITUD'] == numaptitude]
 
     df_topDptoMpio = gdf_openDataDpto.groupby(['MPIO_CODE', 'MUNICIPIO'], as_index=False)['AREA_HECTAREAS'].sum()
     df_topDptoMpio['AREA_KM2'] = df_topDptoMpio['AREA_HECTAREAS']*0.01
@@ -154,7 +182,19 @@ def plot_hbar(df: pd.DataFrame, col_y: str, col_x: str, title: str, xlabel: str,
         ax.text(width + 0.5, bar.get_y() + bar.get_height() / 2,
                 f'{round(width, 1)}', ha='center', va='center')
 
-
     st.pyplot(fig)
 
     return
+
+def get_dict_aptitudLabelReversed(dict_aptitudLabel: dict) -> dict:
+
+    dict_aptitudLabelReversed = {}
+
+    for key in reversed(dict_aptitudLabel):
+        dict_aptitudLabelReversed[dict_aptitudLabel[key]] = key
+
+    return dict_aptitudLabelReversed
+
+def get_list_labelSubTab(dict_aptitudLabelReversed: dict, dict_aptitudEmojin: dict) -> dict:
+
+    return [f'{dict_aptitudEmojin[value]}**{key}**' for key, value in dict_aptitudLabelReversed.items()]

@@ -1,0 +1,31 @@
+0:
+  color: '#C4C4C4'
+  description: "Zonas en las cuales, por mandato legal, no se permite el desarrollo\
+    \ de la producci\xF3n con fines comerciales."
+  emojin: "\U0001F6AB"
+  label: "Exclusi\xF3n legal"
+1:
+  color: '#E44432'
+  description: "Zonas con restricciones f\xEDsicas y socioecosist\xE9micas que imposibilitan\
+    \ el desarrollo de la actividad."
+  emojin: "\U0001F534"
+  label: No apta
+2:
+  color: '#FCC070'
+  description: "Zonas con fuertes limitaciones de tipo f\xEDsico, socioecosist\xE9\
+    mico y/o socioecon\xF3mico, las cuales podr\xEDan adecuarse con grandes inversiones\
+    \ y/o el desarrollo de nuevas tecnolog\xEDas."
+  emojin: "\U0001F7E1"
+  label: Aptitud baja
+3:
+  color: '#79C162'
+  description: "Zonas con limitaciones moderadas de tipo f\xEDsico, socioecosist\xE9\
+    mico y/o socioecon\xF3mico."
+  emojin: "\U0001F7E2"
+  label: Aptitud media
+4:
+  color: '#138848'
+  description: "Zonas con las mejores condiciones desde el punto de vista f\xEDsico,\
+    \ socioecosist\xE9mico y socioecon\xF3mico."
+  emojin: "\U0001F947"
+  label: Aptitud alta

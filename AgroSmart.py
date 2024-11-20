@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import folium
+import folium, yaml
 import fun
 
 from streamlit_folium import st_folium
@@ -16,30 +15,39 @@ def style_function(color):
         'fillOpacity': 0.5
     }
 
-dict_aptitud_label = {
-    0: 'Exclusión legal',
-    1: 'No apta',
-    2: 'Aptitud baja',
-    3: 'Aptitud media',
-    4: 'Aptitud alta'
-}
+with open('dicts/dict_aptitude.yaml', 'r') as archivo:
+    dict_aptitude = yaml.safe_load(archivo)
 
+dict_aptitudeLabel, dict_aptitudeColor, dict_aptitudeEmojin = fun.get_dicts_aptitude(dict_aptitude)
+list_markdownLabelAptitude = fun.get_list_markdownLabelAptitude(dict_aptitude)
 dict_product, list_nameProduct, list_nameDatasets, list_emojiProduct = fun.get_datasets_names()
 list_dpto = fun.get_list_dpto()
+dict_aptitudLabelReversed = fun.get_dict_aptitudLabelReversed(dict_aptitudeLabel)
 
-#with open("app\style.css") as css:
-#    st.markdown( f'<style>{css.read()}</style>' , unsafe_allow_html= True)
-
-
-#with st.sidebar:
-#    st.title("🌿**AgroSmart-App**")
+selectCoordinateOptions = ["Sistema sexagesimal GMS", "Sistema decimal GD"]
     
-st.markdown("# 🌿AgroSmart")
+def pageHome():
 
-tap1, tap2, tap3 = st.tabs(['**Municipal**', '**Departamental**', '**Localizado**'])
+    description = """
+    Herramienta para la visualización del potencial agropecuario
+    de los territorios, permitiendo análizar el rendimiento
+    a nivel departamental o municipal según el tipo de cultivo o
+    producción. \n
+    Se cuenta con **7'333.610** datos en **33 conjuntos** de la **Unidad de Planificación Agropecuaria - UPRA**
+    donde mide la aptitud agropecuaria del territorio nacional. También se usan datos abiertos del **geoportal DANE**
+    para la división política de los departamentos, municipios y sus respectivas áreas territoriales.
+    """
 
-with tap1:
+    st.markdown(description)
+
+    return
+
+
+def pageMpio():
     options_products, options_dpto = None, None
+
+    st.subheader('Análisis de aptitud municipal', divider='green')
+
     with st.container(border=True):
         options_products = st.selectbox(label='**Aptitud agropecuaria:**', options=list_emojiProduct, index=18)
         options_dpto = st.selectbox(label='**Departamento:**', options=list_dpto, index=26)
@@ -57,11 +65,12 @@ with tap1:
             
             submitted = st.form_submit_button('**Aceptar**')
     
-            if submitted:
+            if submitted and options_products is not None and options_dpto is not None and options_mpio is not None:
                 mpio_code = dict_Mpio_MpioCode[options_mpio]
                 
                 gdf_openDataMpio = fun.get_gdf_openDataMpio(gdf_openDataDpto, mpio_code)
                 gdf_DaneMpio = fun.get_gdf_DaneMpio(dpto_code, mpio_code)
+                df_areaOpenDataMpio = fun.get_df_areaOpenDataDpto(gdf_openDataMpio, gdf_DaneMpio, 'MPIO_AREA', dict_aptitudeLabel, dict_aptitudeColor)
 
                 centroid_mpio = [round(x, 3) for x in gdf_DaneMpio["CENTROID"].iloc[0].coords[0]]
 
@@ -70,15 +79,34 @@ with tap1:
                 for _, r in gdf_openDataMpio.iterrows():
                     sim_geo = gpd.GeoSeries(r['geometry'])
                     geo_j = sim_geo.to_json()
-                    geo_j = folium.GeoJson(data=geo_j,
-                                            style_function=style_function(r['COLOR']))
-                    folium.Popup('{0} \nÁrea(he): {1}'.format(dict_aptitud_label[r['APTITUD']], r['AREA_HECTAREAS'])).add_to(geo_j)
+                    geo_j = folium.GeoJson(data=geo_j, style_function=style_function(r['COLOR']))
+                    folium.Popup('{0} \nÁrea(he): {1}'.format(dict_aptitudeLabel[r['APTITUD']], r['AREA_HECTAREAS'])).add_to(geo_j)
                     geo_j.add_to(m)
 
-                st_data = st_folium(m, width=700, height=400)
-                
+                sub1_tab1, sub1_tab2 = st.tabs([
+                    '🗺️ **Distribución geográfica**',
+                    '📊 **Distribución porcentual**'])
 
-with tap2:
+                with sub1_tab1:
+                    with st.container(height=400):
+                        st_data = st_folium(m, width=700, height=400)
+
+                with sub1_tab2:
+                    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+                    ax.pie(df_areaOpenDataMpio['AREA_PERCENT'],
+                    labels=[f"{row['APTITUD_LABEL']}\n{round(row['AREA_KM2'],1)} km²" for _, row in df_areaOpenDataMpio.iterrows()],
+                    colors=df_areaOpenDataMpio['COLOR'],
+                    autopct='%1.1f%%', textprops={'fontsize': 7})
+                
+                    ax.set_title(f'{options_dpto} - {nameProduct}', fontsize=8)
+                
+                    st.pyplot(fig)
+
+    return
+
+def pageDpto():
+    st.subheader('Análisis de aptitud departamental', divider='green')
+
     with st.form('form_2'):
         options_products = st.selectbox(label='**Aptitud agropecuaria:**', options=list_emojiProduct, index=18)
         options_dpto = st.selectbox(label='**Departamento:**', options=list_dpto, index=26)
@@ -92,12 +120,11 @@ with tap2:
             gdf_DaneDpto = fun.get_gdf_DaneDpto(dpto_code)
             gdf_DaneDptoMpio = fun.get_gdf_DaneDptoMpio(dpto_code)
             gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
-            df_areaOpenDataDpto = fun.get_df_areaOpenDataDpto(gdf_openDataDpto, gdf_DaneDpto, 'DPTO_AREA')
-            df_topDptoMpio = fun.get_df_topDptoMpio(gdf_openDataDpto, gdf_DaneDptoMpio)
+            df_areaOpenDataDpto = fun.get_df_areaOpenDataDpto(gdf_openDataDpto, gdf_DaneDpto, 'DPTO_AREA', dict_aptitudeLabel, dict_aptitudeColor)
              
             sub2_tab1, sub2_tab2, sub2_tab3 = st.tabs(['🗺️ **Distribución geográfica**',
                                                        '📊 **Distribución porcentual**',
-                                                       '🥇 **Top municipios**'])
+                                                       '🏆 **Top municipios**'])
 
             with sub2_tab1:
                 fig, ax = plt.subplots(1, 1, figsize=(10, 8))
@@ -128,18 +155,74 @@ with tap2:
                 st.pyplot(fig)
 
             with sub2_tab3:
-                df_hbar1 = df_topDptoMpio.head(10)
-                df_hbar1 = df_hbar1.sort_values(by='AREA_KM2', ascending=True)
-                title_hbar1 = f'TOP 10 ÁREA CON APTITUD ALTA POR MUNICIPIO EN {options_dpto}'
-                xlabel_hbar1 = 'Área con aptitud alta (km²)'
+                list_labelSubTab = fun.get_list_labelSubTab(dict_aptitudLabelReversed, dict_aptitudeEmojin)
 
-                fun.plot_hbar(df=df_hbar1, col_y='MUNICIPIO', col_x='AREA_KM2',
-                              title=title_hbar1, xlabel=xlabel_hbar1, color='#138848')
+                with st.container(border=True):
+                    resub2_1, resub2_2, resub2_3, resub2_4, resub2_5 = st.tabs(list_labelSubTab)
 
-                df_hbar2 = df_topDptoMpio.sort_values(by='AREA_PERCENT', ascending=False).head(10)
-                df_hbar2 = df_hbar2.sort_values(by='AREA_PERCENT', ascending=True)
-                title_hbar2 = f'TOP 10 PORCENTAJE DEL TERRITORIO CON APTITUD ALTA POR MUNICIPIO EN {options_dpto}'
-                xlabel_hbar2 = 'Porcentaje de área con aptitud alta en el municipio (%)'
+                    dict_reSubTap = {
+                        4: resub2_1,
+                        3: resub2_2,
+                        2: resub2_3,
+                        1: resub2_4,
+                        0: resub2_5
+                    }
 
-                fun.plot_hbar(df=df_hbar2, col_y='MUNICIPIO', col_x='AREA_PERCENT',
-                              title=title_hbar2, xlabel=xlabel_hbar2, color='#138848')
+                    cont_idx = 0
+
+                    for key, value in dict_reSubTap.items():
+                        df_aptitudeDptoMpio = fun.get_df_aptitudeDptoMpio(gdf_openDataDpto, gdf_DaneDptoMpio, key)
+                        aptitudeLabel = dict_aptitudeLabel[key]
+
+                        with value:
+                            st.markdown(f"**TOP 10 ÁREA CON {aptitudeLabel.upper()} POR MUNICIPIOS EN {options_dpto}**")
+
+                            df_hbar1 = df_aptitudeDptoMpio.head(10)
+                            df_hbar1 = df_hbar1.sort_values(by='AREA_KM2', ascending=True)
+                            xlabel_hbar1 = f'Área con {aptitudeLabel} (km²)'
+
+                            fun.plot_hbar(df=df_hbar1, col_y='MUNICIPIO', col_x='AREA_KM2',
+                                          title=None, xlabel=xlabel_hbar1, color=dict_aptitudeColor[key])
+                            
+                            st.markdown(f"**TOP 10 PORCENTAJE DEL TERRITORIO CON {aptitudeLabel.upper()} POR MUNICIPIOS EN {options_dpto}**")
+                            
+                            df_hbar2 = df_aptitudeDptoMpio.sort_values(by='AREA_PERCENT', ascending=False).head(10)
+                            df_hbar2 = df_hbar2.sort_values(by='AREA_PERCENT', ascending=True)
+                            xlabel_hbar2 = f'Porcentaje de área municipal con {aptitudeLabel} (%)'
+
+                            fun.plot_hbar(df=df_hbar2, col_y='MUNICIPIO', col_x='AREA_PERCENT',
+                                          title=None, xlabel=xlabel_hbar2, color=dict_aptitudeColor[key])
+                            
+                        cont_idx = cont_idx + 1
+
+    return
+
+def pageLocal():
+    st.subheader('Análisis localizado', divider='green')
+
+    
+
+    return
+
+
+st.markdown(
+    fun.get_str_GoogleFonts(), 
+    unsafe_allow_html=True
+)
+
+st.markdown(**fun.get_dict_customFont("🌿AgroSmart App"))
+
+pg = st.navigation([
+    st.Page(pageHome, title='Inicio', icon='🏠'),
+    st.Page(pageDpto, title='Departamento'),
+    st.Page(pageMpio, title='Municipio'),
+    st.Page(pageLocal, title='Local'),
+])
+pg.run()
+
+st.divider()
+
+with st.expander('**Clasificación de la aptitud agropecuaria**', icon='🏆'):
+    with st.container(border=True):
+        for i in range(0,len(list_markdownLabelAptitude),1):
+            st.markdown(list_markdownLabelAptitude[i], unsafe_allow_html=True)
