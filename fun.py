@@ -1,14 +1,49 @@
 # -*- coding: utf-8 -*-
-import yaml
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import streamlit as st
+import yaml,  warnings
+
+from shapely.geometry import Point
+
+warnings.filterwarnings("ignore", message=".*non conformant file extension.*")
 
 font = {
     'url': "https://fonts.googleapis.com/css2?family=Mansalva&display=swap",
     'font_family': "Mansalva"
 }
+
+def str2bool(flag_gcs):
+
+    boolean = False
+
+    if flag_gcs == "True":
+        boolean = True
+
+    return boolean
+
+def readFileGoogleCloudStorage(flag_gcs, fs, BUCKET_NAME, file_path, file_type, sheet_name):
+
+    file = None
+
+    if flag_gcs:
+        gcs_path = f"gs://{BUCKET_NAME}/{file_path}"
+        file = None
+
+        with fs.open(gcs_path, "rb") as f:
+            if file_type == 'xlsx':
+                file = pd.read_excel(f, sheet_name=sheet_name)
+            elif file_type == 'gpkg':
+                file = gpd.read_file(f)
+
+    else:
+        if file_type == 'xlsx':
+            file = pd.read_excel(file_path, sheet_name=sheet_name)
+        elif file_type == 'gpkg':
+            file = gpd.read_file(file_path)
+
+    return file
 
 def get_str_GoogleFonts():
 
@@ -69,18 +104,9 @@ def from_emojiProduct_to_nameDataset(emojiProduct: str, list_emojiProduct: list,
 
     return nameDataset, nameProduct
 
-def get_list_dpto():
+def get_list_dpto(dict_dptoNameCode):
 
-    list_dpto = ['AMAZONAS', 'ANTIOQUIA', 'ARAUCA', 'ATLÁNTICO',
-                 'BOLÍVAR', 'BOYACÁ', 'CALDAS', 'CAQUETÁ',
-                 'CASANARE', 'CAUCA', 'CESAR', 'CHOCÓ', 
-                 'CUNDINAMARCA', 'CÓRDOBA', 'GUAINÍA', 'GUAVIARE',
-                 'HUILA', 'GUAJIRA', 'MAGDALENA', 'META',
-                 'NARIÑO', 'NORTE DE SANTANDER', 'PUTUMAYO', 'QUINDÍO',
-                 'RISARALDA', 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA', 'SANTANDER', 'SUCRE',
-                 'TOLIMA', 'VALLE DEL CAUCA', 'VAUPÉS', 'VICHADA']
-
-    return list_dpto
+    return [key for key in dict_dptoNameCode]
 
 def get_dict_Mpio_MpioCode(gdf_openDataDpto: pd.DataFrame) -> dict:
 
@@ -94,39 +120,63 @@ def get_dict_Mpio_MpioCode(gdf_openDataDpto: pd.DataFrame) -> dict:
 
     return dict_Mpio_MpioCode
 
-def get_dpto_code(dpto_name):
+def get_gdf_DaneCountryDpto(flag_gcs, fs, BUCKET_NAME):
 
-    df_dpto = pd.read_excel('datasets/DICT_CODIGO_DANE.xlsx', sheet_name='DICT_DPTO')
-    df_dpto = df_dpto[df_dpto['DEPARTAMENTO'] == dpto_name]
+    file_path = 'datasets/geoportal_DANE/MGN_ADM_DPTO_POLITICO.gpkg'
+    gdf_DaneCountryDpto = readFileGoogleCloudStorage(flag_gcs, fs, BUCKET_NAME, file_path, 'gpkg', None)
 
-    return df_dpto['DPTO_CODE'].iloc[0]
+    return gdf_DaneCountryDpto
 
-def get_gdf_DaneDpto(dpto_code) -> gpd.GeoDataFrame:
+def get_polygonDane(gdf_Dane: gpd.GeoDataFrame, latitude: float, longitude: float) -> gpd.GeoDataFrame:
 
-    gdf_DaneDpto = gpd.read_file('datasets/geoportal_DANE/MGN_ADM_DPTO_POLITICO.gpkg')
+    point = Point(longitude, latitude)
+    gdf_polygon = gdf_Dane[gdf_Dane['geometry'].contains(point)]
+
+    return gdf_polygon
+
+def get_gdf_DaneDpto(flag_gcs, fs, BUCKET_NAME, dpto_code) -> gpd.GeoDataFrame:
+
+    gdf_DaneDpto = get_gdf_DaneCountryDpto(flag_gcs, fs, BUCKET_NAME)
     gdf_DaneDpto = gdf_DaneDpto[gdf_DaneDpto['DPTO_CODE'] == dpto_code]
 
     return gdf_DaneDpto
 
-def get_gdf_DaneDptoMpio(dpto_code)-> gpd.GeoDataFrame:
+def get_gdf_DaneDptoMpio(flag_gcs, fs, BUCKET_NAME, dpto_code)-> gpd.GeoDataFrame:
 
-    gdf_DaneDptoMpio = gpd.read_file('datasets/geoportal_DANE/MGN_ADM_MPIO_GRAFICO.gpkg')
+    file_path = 'datasets/geoportal_DANE/MGN_ADM_MPIO_GRAFICO.gpkg'
+    gdf_DaneDptoMpio = readFileGoogleCloudStorage(flag_gcs, fs, BUCKET_NAME, file_path, 'gpkg', None)
     gdf_DaneDptoMpio = gdf_DaneDptoMpio[gdf_DaneDptoMpio['DPTO_CODE'] == dpto_code]
 
     return gdf_DaneDptoMpio
 
-def get_gdf_DaneMpio(dpto_code, mpio_code) -> gpd.GeoDataFrame:
+def get_gdf_DaneDptoMpio2(flag_gcs, fs, BUCKET_NAME, dpto_code, dpto_name):
 
-    gdf_DaneMpio = gpd.read_file('datasets/geoportal_DANE/MGN_ADM_MPIO_GRAFICO.gpkg')
+    file_path = f'datasets/geoportal_DANE/MGN_ADM_DPTO_MPIO_POLITICO/DPTO_{dpto_name}_{dpto_code}.gpkg'
+    gdf_DaneDptoMpio = readFileGoogleCloudStorage(flag_gcs, fs, BUCKET_NAME, file_path, 'gpkg', None)
+
+    return gdf_DaneDptoMpio
+
+def get_gdf_DaneMpio(flag_gcs:bool, fs, BUCKET_NAME, dpto_code: int, mpio_code: int) -> gpd.GeoDataFrame:
+
+    file_path = 'datasets/geoportal_DANE/MGN_ADM_MPIO_GRAFICO.gpkg'
+
+   
+    gdf_DaneMpio = readFileGoogleCloudStorage(flag_gcs, fs, BUCKET_NAME, file_path, 'gpkg', None)
+    
     gdf_DaneMpio = gdf_DaneMpio[gdf_DaneMpio['DPTO_CODE'] == dpto_code]
     gdf_DaneMpio = gdf_DaneMpio[gdf_DaneMpio['MPIO_CODE'] == mpio_code]
     gdf_DaneMpio["CENTROID"] = gdf_DaneMpio.centroid
 
     return gdf_DaneMpio
 
-def get_gdf_openDataDpto(nameDataset: str, nameDpto) -> gpd.GeoDataFrame:
+def get_gdf_openDataDpto(flag_gcs: bool, fs, BUCKET_NAME, nameDataset: str, nameDpto) -> gpd.GeoDataFrame:
 
-    gdf_openDataDpto = gpd.read_file(f'datasets/datos_abiertos/{nameDpto}/{nameDataset}.gpkg')
+    file_path = f'datasets/datos_abiertos/{nameDpto}/{nameDataset}.gpkg'
+
+    if flag_gcs:
+        gdf_openDataDpto = readFileGoogleCloudStorage(flag_gcs, fs, BUCKET_NAME, file_path, 'gpkg', None)
+    else:
+        gdf_openDataDpto = gpd.read_file(file_path)
 
     return gdf_openDataDpto
 

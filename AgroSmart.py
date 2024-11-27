@@ -2,10 +2,11 @@
 import streamlit as st
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import folium, yaml
+import folium, yaml, gcsfs
 import fun
 
 from streamlit_folium import st_folium
+from shapely.geometry import Point
 
 def style_function(color):
     return lambda x: {
@@ -18,11 +19,29 @@ def style_function(color):
 with open('dicts/dict_aptitude.yaml', 'r') as archivo:
     dict_aptitude = yaml.safe_load(archivo)
 
+with open('dicts/dict_dptoNameCode.yaml', 'r') as archivo:
+    dict_dptoNameCode = yaml.safe_load(archivo)
+
+if 'management' not in st.session_state:
+    st.session_state['management'] = 1
+
+if st.session_state['management'] == 0:
+    flag_gcs = False
+    BUCKET_NAME = None
+    fs = None
+elif st.session_state['management'] == 1:
+    flag_gcs = True
+    GCS_TOKEN = dict(st.secrets.GCS_TOKEN)
+    PROJECT_ID = GCS_TOKEN['project_id']
+    BUCKET_NAME = st.secrets.GCS_INFO['bucket_name']
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID, token=GCS_TOKEN)
+
 dict_aptitudeLabel, dict_aptitudeColor, dict_aptitudeEmojin = fun.get_dicts_aptitude(dict_aptitude)
 list_markdownLabelAptitude = fun.get_list_markdownLabelAptitude(dict_aptitude)
 dict_product, list_nameProduct, list_nameDatasets, list_emojiProduct = fun.get_datasets_names()
-list_dpto = fun.get_list_dpto()
+list_dpto = fun.get_list_dpto(dict_dptoNameCode)
 dict_aptitudLabelReversed = fun.get_dict_aptitudLabelReversed(dict_aptitudeLabel)
+dict_dptoCodeName = {value: key for key, value in dict_dptoNameCode.items()}
 
 selectCoordinateOptions = ["Sistema sexagesimal GMS", "Sistema decimal GD"]
     
@@ -42,7 +61,6 @@ def pageHome():
 
     return
 
-
 def pageMpio():
     options_products, options_dpto = None, None
 
@@ -56,8 +74,8 @@ def pageMpio():
         with st.form('form_1'):
 
             nameDataset, nameProduct = fun.from_emojiProduct_to_nameDataset(options_products, list_emojiProduct, list_nameDatasets, list_nameProduct)
-            dpto_code = fun.get_dpto_code(options_dpto)
-            gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
+            dpto_code = dict_dptoNameCode[options_dpto]
+            gdf_openDataDpto = fun.get_gdf_openDataDpto(flag_gcs, fs, BUCKET_NAME, nameDataset, options_dpto)
             dict_Mpio_MpioCode = fun.get_dict_Mpio_MpioCode(gdf_openDataDpto)
 
             options_mpio = st.selectbox(label='**Municipio:**', options=[key for key in dict_Mpio_MpioCode], index=None,
@@ -69,7 +87,7 @@ def pageMpio():
                 mpio_code = dict_Mpio_MpioCode[options_mpio]
                 
                 gdf_openDataMpio = fun.get_gdf_openDataMpio(gdf_openDataDpto, mpio_code)
-                gdf_DaneMpio = fun.get_gdf_DaneMpio(dpto_code, mpio_code)
+                gdf_DaneMpio = fun.get_gdf_DaneMpio(flag_gcs, fs, BUCKET_NAME, dpto_code, mpio_code)
                 df_areaOpenDataMpio = fun.get_df_areaOpenDataDpto(gdf_openDataMpio, gdf_DaneMpio, 'MPIO_AREA', dict_aptitudeLabel, dict_aptitudeColor)
 
                 centroid_mpio = [round(x, 3) for x in gdf_DaneMpio["CENTROID"].iloc[0].coords[0]]
@@ -98,7 +116,7 @@ def pageMpio():
                     colors=df_areaOpenDataMpio['COLOR'],
                     autopct='%1.1f%%', textprops={'fontsize': 7})
                 
-                    ax.set_title(f'{options_dpto} - {nameProduct}', fontsize=8)
+                    ax.set_title(f'{options_mpio} - {nameProduct}', fontsize=8)
                 
                     st.pyplot(fig)
 
@@ -114,12 +132,12 @@ def pageDpto():
 
         submitted = st.form_submit_button('**Aceptar**')
 
-        if submitted:
+        if submitted and options_dpto is not None:
             nameDataset, nameProduct = fun.from_emojiProduct_to_nameDataset(options_products, list_emojiProduct, list_nameDatasets, list_nameProduct)
-            dpto_code = fun.get_dpto_code(options_dpto)
-            gdf_DaneDpto = fun.get_gdf_DaneDpto(dpto_code)
-            gdf_DaneDptoMpio = fun.get_gdf_DaneDptoMpio(dpto_code)
-            gdf_openDataDpto = fun.get_gdf_openDataDpto(nameDataset, options_dpto)
+            dpto_code = dict_dptoNameCode[options_dpto]
+            gdf_DaneDpto = fun.get_gdf_DaneDpto(flag_gcs, fs, BUCKET_NAME, dpto_code)
+            gdf_DaneDptoMpio = fun.get_gdf_DaneDptoMpio(flag_gcs, fs, BUCKET_NAME, dpto_code)
+            gdf_openDataDpto = fun.get_gdf_openDataDpto(flag_gcs, fs, BUCKET_NAME, nameDataset, options_dpto)
             df_areaOpenDataDpto = fun.get_df_areaOpenDataDpto(gdf_openDataDpto, gdf_DaneDpto, 'DPTO_AREA', dict_aptitudeLabel, dict_aptitudeColor)
              
             sub2_tab1, sub2_tab2, sub2_tab3 = st.tabs(['🗺️ **Distribución geográfica**',
@@ -200,17 +218,71 @@ def pageDpto():
 def pageLocal():
     st.subheader('Análisis localizado', divider='green')
 
-    
+    click_map = folium.Map(location=[4.64, -74], zoom_start=5)
+    click_marker = folium.LatLngPopup()
+    click_map.add_child(click_marker)
+
+    with st.container(height=400):
+        map_local = st_folium(click_map, width=700, height=400)
+
+    if map_local and map_local["last_clicked"]:
+        coords = map_local["last_clicked"]
+        latitude = round(coords['lat'], 5)
+        longitude = round(coords['lng'], 5)
+
+    with st.form('form_3'):
+        optionsMultiProducts = st.multiselect('**Aptitud agropecuaria:**', options=list_emojiProduct, default=list_emojiProduct[18])
+
+        submitted = st.form_submit_button('**Aceptar**')
+
+        if submitted:
+            gdf_DaneCountryDpto = fun.get_gdf_DaneCountryDpto(flag_gcs, fs, BUCKET_NAME)
+            
+            gdf_polygonDpto = fun.get_polygonDane(gdf_DaneCountryDpto, latitude, longitude)
+
+            if gdf_polygonDpto.shape[0] == 1:
+                dpto_code = gdf_polygonDpto.iloc[0]['DPTO_CODE']
+                dpto_name = dict_dptoCodeName[dpto_code]
+
+                gdf_DaneDptoMpio = fun.get_gdf_DaneDptoMpio2(flag_gcs, fs, BUCKET_NAME, dpto_code, dpto_name)
+
+                gdf_polygonMpio = fun.get_polygonDane(gdf_DaneDptoMpio, latitude, longitude)
+
+                mpio_code = gdf_polygonMpio.iloc[0]['DPTO_CODE']
+                mpio_name = gdf_polygonMpio.iloc[0]['MUNICIPIO']
+
+                st.text(f'{dpto_name} - {mpio_name}')
+
+                openDataPath = f'datasets/datos_abiertos/dpto_name/'
+
+                #nameDataset, nameProduct = fun.from_emojiProduct_to_nameDataset(options_products, list_emojiProduct, list_nameDatasets, list_nameProduct)
+
+
+                #st.text(optionsMultiProducts)
+
+
+                
+            
+
+            
+
 
     return
 
 
-st.markdown(
-    fun.get_str_GoogleFonts(), 
-    unsafe_allow_html=True
-)
-
+st.markdown(fun.get_str_GoogleFonts(), unsafe_allow_html=True)
 st.markdown(**fun.get_dict_customFont("🌿AgroSmart App"))
+
+with st.sidebar:
+    if not fun.str2bool(st.secrets.GCS_INFO['hide_widget_management']):
+        list_optionsManagement = ["💾 Local", "☁️ Google Cloud"]
+        optionsManagement = st.pills('**Gestión de archivos:**', options=list_optionsManagement,
+                                     selection_mode='single', default=list_optionsManagement[st.session_state['management']],
+                                     disabled=fun.str2bool(st.secrets.GCS_INFO['disable_widget_management']))
+        
+        if optionsManagement is not None:
+            st.session_state['management'] = list_optionsManagement.index(optionsManagement)
+        
 
 pg = st.navigation([
     st.Page(pageHome, title='Inicio', icon='🏠'),
