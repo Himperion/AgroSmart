@@ -69,7 +69,7 @@ def pageHome():
             col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
 
             with col1:
-                st.image(r"img\\member2.png", width=200)
+                st.image(r"img//member2.png", width=200)
 
             with col2:
                 st.subheader("Darío Fernando Gonzalez Fontecha", divider=True)
@@ -80,7 +80,7 @@ def pageHome():
             col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
 
             with col1:
-                st.image(r"img\\member1.png", width=200)
+                st.image(r"img//member1.png", width=200)
 
             with col2:
                 st.subheader("José Camilo Rojas Páez", divider=True)
