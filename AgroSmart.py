@@ -47,17 +47,50 @@ selectCoordinateOptions = ["Sistema sexagesimal GMS", "Sistema decimal GD"]
     
 def pageHome():
 
-    description = """
-    Herramienta para la visualización del potencial agropecuario
-    de los territorios, permitiendo análizar el rendimiento
-    a nivel departamental o municipal según el tipo de cultivo o
-    producción. \n
-    Se cuenta con **7'333.610** datos en **33 conjuntos** de la **Unidad de Planificación Agropecuaria - UPRA**
-    donde mide la aptitud agropecuaria del territorio nacional. También se usan datos abiertos del **geoportal DANE**
-    para la división política de los departamentos, municipios y sus respectivas áreas territoriales.
-    """
+    tab1, tab2 = st.tabs(["Descripción", "Equipo humano"])
 
-    st.markdown(description)
+    with tab1:
+
+        description = """
+        Herramienta para la visualización del potencial agropecuario
+        de los territorios, permitiendo análizar el rendimiento
+        a nivel departamental o municipal según el tipo de cultivo o
+        producción. \n
+        Se cuenta con **7'333.610** datos en **33 conjuntos** de la **Unidad de Planificación Agropecuaria - UPRA**
+        donde mide la aptitud agropecuaria del territorio nacional. También se usan datos abiertos del **geoportal DANE**
+        para la división política de los departamentos, municipios y sus respectivas áreas territoriales.
+        """
+
+        st.markdown(description)
+
+    with tab2:
+
+        with st.container(border=True):
+            col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
+
+            with col1:
+                st.image(r"img\\member2.png", width=200)
+
+            with col2:
+                st.subheader("Darío Fernando Gonzalez Fontecha", divider=True)
+                st.caption("Comprometido con el desarrollo sostenible, energias renovables y la implementación de tecnologías innovadoras para el sector agropecuario. Con conocimientos en MATLAB, Python y desarrollo Web, oriento mis habilidades hacia el uso de Big Data y computación en la nube para transformar el campo colombiano.")
+                st.markdown("📧 dario.gonzalez@correo.uis.edu.co")
+
+        with st.container(border=True):
+            col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
+
+            with col1:
+                st.image(r"img\\member1.png", width=200)
+
+            with col2:
+                st.subheader("José Camilo Rojas Páez", divider=True)
+                st.caption("Mi compromiso hacia la sostenibilidad se traduce en proyectos de energías renovables destinados a mejorar el sector agropecuario. Con conocimientos en  MATLAB, Python, Streamlit y Power BI, que aplico al análisis y procesamiento de datos. ")
+                
+                st.markdown("📧 jose.rojas9@correo.uis.edu.co")
+                st.markdown("🐈‍⬛ https://github.com/Himperion")
+        
+
+    
 
     return
 
