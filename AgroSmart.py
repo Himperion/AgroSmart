@@ -2,11 +2,19 @@
 import streamlit as st
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import folium, yaml, gcsfs
-import fun
+import plotly.express as px
+import folium, yaml, s3fs
+#import fun
 
+import funtions
+
+from matplotlib.patches import Patch
 from streamlit_folium import st_folium
 from shapely.geometry import Point
+
+from data.aptitude import DICT_APTITUDE, DICT_LABEL_APTITUDE, DICT_APTITUDE_NAME, DICT_APTITUDE_COLOR, DICT_APTITUDE_LABEL, LIST_APTITUDE_LABEL
+from data.info import Members, DescriptiveText
+from data.items_da import DICT_ITEMS, DICT_ITEMS_NAME_LABEL, DICT_ITEMS_LABEL_NAME, DICT_DPTO, LIST_DPTO_NAME
 
 def style_function(color):
     return lambda x: {
@@ -16,32 +24,29 @@ def style_function(color):
         'fillOpacity': 0.5
     }
 
-with open('dicts/dict_aptitude.yaml', 'r') as archivo:
-    dict_aptitude = yaml.safe_load(archivo)
+#%% CLOUDFLARE_R2
+    
+r2_fs = s3fs.S3FileSystem(
+    key=st.secrets.CLOUDFLARE_R2["ACCESS_KEY_ID"],
+    secret=st.secrets.CLOUDFLARE_R2["SECRET_ACCESS_KEY"],
+    client_kwargs={
+        "endpoint_url": st.secrets.CLOUDFLARE_R2["BUCKET_ENDPOINT"]
+    }
+)
 
-with open('dicts/dict_dptoNameCode.yaml', 'r') as archivo:
-    dict_dptoNameCode = yaml.safe_load(archivo)
 
-if 'management' not in st.session_state:
-    st.session_state['management'] = 1
-
-if st.session_state['management'] == 0:
-    flag_gcs = False
-    BUCKET_NAME = None
-    fs = None
-elif st.session_state['management'] == 1:
-    flag_gcs = True
-    GCS_TOKEN = dict(st.secrets.GCS_TOKEN)
-    PROJECT_ID = GCS_TOKEN['project_id']
-    BUCKET_NAME = st.secrets.GCS_INFO['bucket_name']
-    fs = gcsfs.GCSFileSystem(project=PROJECT_ID, token=GCS_TOKEN)
-
+"""
 dict_aptitudeLabel, dict_aptitudeColor, dict_aptitudeEmojin = fun.get_dicts_aptitude(dict_aptitude)
 list_markdownLabelAptitude = fun.get_list_markdownLabelAptitude(dict_aptitude)
 dict_product, list_nameProduct, list_nameDatasets, list_emojiProduct = fun.get_datasets_names()
 list_dpto = fun.get_list_dpto(dict_dptoNameCode)
 dict_aptitudLabelReversed = fun.get_dict_aptitudLabelReversed(dict_aptitudeLabel)
 dict_dptoCodeName = {value: key for key, value in dict_dptoNameCode.items()}
+
+"""
+
+
+
 
 selectCoordinateOptions = ["Sistema sexagesimal GMS", "Sistema decimal GD"]
     
@@ -50,50 +55,36 @@ def pageHome():
     tab1, tab2 = st.tabs(["Descripción", "Equipo humano"])
 
     with tab1:
-
-        description = """
-        Herramienta para la visualización del potencial agropecuario
-        de los territorios, permitiendo análizar el rendimiento
-        a nivel departamental o municipal según el tipo de cultivo o
-        producción. \n
-        Se cuenta con **7'333.610** datos en **33 conjuntos** de la **Unidad de Planificación Agropecuaria - UPRA**
-        donde mide la aptitud agropecuaria del territorio nacional. También se usan datos abiertos del **geoportal DANE**
-        para la división política de los departamentos, municipios y sus respectivas áreas territoriales.
-        """
-
-        st.markdown(description)
+        st.markdown(DescriptiveText.TEXT0.value)
 
     with tab2:
+        with st.container(border=True):
+            col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
+
+            with col1:
+                st.image(Members.MEMBER0.value.Image, width=200)
+
+            with col2:
+                st.subheader(Members.MEMBER0.value.Name, divider=True)
+                st.caption(Members.MEMBER0.value.Description)
+                st.markdown(f"📧 {Members.MEMBER0.value.Email}")
+                st.markdown(f"🐈‍⬛ {Members.MEMBER0.value.GitHub}")
 
         with st.container(border=True):
             col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
 
             with col1:
-                st.image("img/member2.jpg", width=200)
+                st.image(Members.MEMBER1.value.Image, width=200)
 
             with col2:
-                st.subheader("Darío Fernando Gonzalez Fontecha", divider=True)
-                st.caption("Comprometido con el desarrollo sostenible, energias renovables y la implementación de tecnologías innovadoras para el sector agropecuario. Con conocimientos en MATLAB, Python y desarrollo Web, oriento mis habilidades hacia el uso de Big Data y computación en la nube para transformar el campo colombiano.")
-                st.markdown("📧 dario.gonzalez@correo.uis.edu.co")
-
-        with st.container(border=True):
-            col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
-
-            with col1:
-                st.image("img/member1.jpg", width=200)
-
-            with col2:
-                st.subheader("José Camilo Rojas Páez", divider=True)
-                st.caption("Mi compromiso hacia la sostenibilidad se traduce en proyectos de energías renovables destinados a mejorar el sector agropecuario. Con conocimientos en  MATLAB, Python, Streamlit y Power BI, que aplico al análisis y procesamiento de datos. ")
-                
-                st.markdown("📧 jose.rojas9@correo.uis.edu.co")
-                st.markdown("🐈‍⬛ https://github.com/Himperion")
-        
-
-    
+                st.subheader(Members.MEMBER1.value.Name, divider=True)
+                st.caption(Members.MEMBER1.value.Description)
+                st.markdown(f"📧 {Members.MEMBER1.value.Email}")
+                st.markdown(f"🐈‍⬛ {Members.MEMBER1.value.GitHub}")
 
     return
 
+"""
 def pageMpio():
     options_products, options_dpto = None, None
 
@@ -154,9 +145,117 @@ def pageMpio():
                     st.pyplot(fig)
 
     return
+"""
 
 def pageDpto():
     st.subheader('Análisis de aptitud departamental', divider='green')
+
+
+    with st.form("form_dpto"):
+        options_products = st.selectbox(label="**Aptitud agropecuaria:**", options=[key for key in DICT_ITEMS_LABEL_NAME], index=18)
+        options_dpto = st.selectbox(label="**Departamento:**", options=LIST_DPTO_NAME, index=26)
+        options_aptitude = st.multiselect(label="**Clasificación de la aptitud agropecuaria**", options=LIST_APTITUDE_LABEL, default=LIST_APTITUDE_LABEL[:-1])
+        option_croquis_mpio = st.checkbox('Ver división municipal del departamento')
+
+        submitted = st.form_submit_button("**Aceptar**")
+
+        if submitted and options_dpto is not None and len(options_aptitude) != 0:
+            dpto_code = DICT_DPTO[options_dpto]["DPTO_CODE"]
+            partial_name = DICT_ITEMS[DICT_ITEMS_LABEL_NAME[options_products]]["PARTIAL_NAME"]
+            aptitude_select = [DICT_LABEL_APTITUDE[value] for value in options_aptitude]
+
+            path_dpto_item = funtions.get_path_dpto_item(dpto_name=options_dpto, dpto_code=dpto_code, partial_name=partial_name)
+
+            gdf_dpto_item = funtions.open_dataset_dpto_item(r2_fs, path_dpto_item, aptitude_select, DICT_APTITUDE_COLOR, DICT_APTITUDE_NAME)
+            gdf_dane_dpto = funtions.get_gdf_dane_dpto(dpto_code)
+            gdf_dane_dpto_mpio = funtions.get_gdf_dane_dpto_mpio(dpto_code)
+
+            area_dpto = gdf_dane_dpto["DPTO_AREA"].iloc[0]
+
+            with st.container(border=True):
+    
+                dpto_tab1, dpto_tab2, dpto_tab3 = st.tabs(['🗺️ **Distribución geográfica**',
+                                                        '📊 **Distribución porcentual**',
+                                                        '🏆 **Top municipios**'])
+                
+                with dpto_tab1:
+                    unique_legend = funtions.get_gdf_unique_legend(gdf_dpto_item)
+
+                    legend_elements = [
+                        Patch(facecolor=row["COLOR"], edgecolor='black', label=row["LABEL"])
+                        for _, row in unique_legend.iterrows()
+                        ]
+
+                    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+                    gdf_dpto_item.plot(ax=ax, color=gdf_dpto_item["COLOR"], edgecolor="none")
+                    gdf_dane_dpto.plot(ax=ax, edgecolor="black", facecolor="none", linewidth=0.5)
+
+                    if option_croquis_mpio:
+                        gdf_dane_dpto_mpio.plot(ax=ax, edgecolor="black", facecolor="none", linewidth=0.5)
+
+                    ax.legend(handles=legend_elements, title="Clasificación", loc="upper right")
+                    ax.axis("off")
+
+                    st.pyplot(fig)
+                    
+                with dpto_tab2:
+                    df_info_dpto = funtions.get_df_info_dpto(gdf_dpto_item, DICT_APTITUDE_LABEL, DICT_APTITUDE_COLOR, area_dpto)
+
+                    fig = px.pie(
+                        df_info_dpto,
+                        values="AREA_PERCENT",
+                        names="APTITUD_LABEL",
+                        color="APTITUD_LABEL",
+                        color_discrete_map=dict(zip(df_info_dpto["APTITUD_LABEL"], df_info_dpto["COLOR"]))
+                    )
+
+                    fig.update_traces(
+                        hovertemplate=(
+                            "<b>%{label}</b><br>"
+                            "<br>"
+                            "<b>Área Total (km²):</b> %{customdata[0]:,.2f}<br>"
+                            "<b>Porcentaje:</b> %{percent}<extra></extra>"
+                            )
+                    )
+
+                    fig.update_traces(customdata=df_info_dpto[['AREA_KM2']], selector=dict(type='pie'))
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                with dpto_tab3:
+                    dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4, dpto_tab3_sub5 = None, None, None, None, None
+
+                    if len(aptitude_select) == 1:
+                        dpto_tab3_sub1 = st.tabs(options_aptitude)
+                    elif len(aptitude_select) == 2:
+                        dpto_tab3_sub1, dpto_tab3_sub2 = st.tabs(options_aptitude)
+                    elif len(aptitude_select) == 3:
+                        dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3 = st.tabs(options_aptitude)
+                    elif len(aptitude_select) == 4:
+                        dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4 = st.tabs(options_aptitude)
+                    elif len(aptitude_select) == 5:
+                        dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4, dpto_tab3_sub5 = st.tabs(options_aptitude)
+
+                    if dpto_tab3_sub1 is not None:
+                        with dpto_tab3_sub1:
+                            df_top_dpto_mpio = funtions.get_df_top_dpto_mpio(gdf_dpto_item, gdf_dane_dpto_mpio, aptitude_select[0])
+
+                            st.dataframe(df_top_dpto_mpio)
+
+                            
+
+                            
+                        
+
+
+
+
+            
+
+
+
+    """
 
     with st.form('form_2'):
         options_products = st.selectbox(label='**Aptitud agropecuaria:**', options=list_emojiProduct, index=18)
@@ -246,8 +345,10 @@ def pageDpto():
                             
                         cont_idx = cont_idx + 1
 
+    """
     return
 
+"""
 def pageLocal():
     st.subheader('Análisis localizado', divider='green')
 
@@ -294,19 +395,15 @@ def pageLocal():
                 #st.text(optionsMultiProducts)
 
 
-                
-            
-
-            
-
-
     return
+"""
 
+st.markdown(funtions.get_str_GoogleFonts(), unsafe_allow_html=True)
+st.markdown(**funtions.get_dict_customFont("🌿AgroSmart App"))
 
-st.markdown(fun.get_str_GoogleFonts(), unsafe_allow_html=True)
-st.markdown(**fun.get_dict_customFont("🌿AgroSmart App"))
 
 with st.sidebar:
+    """
     if not fun.str2bool(st.secrets.GCS_INFO['hide_widget_management']):
         list_optionsManagement = ["💾 Local", "☁️ Google Cloud"]
         optionsManagement = st.pills('**Gestión de archivos:**', options=list_optionsManagement,
@@ -315,19 +412,21 @@ with st.sidebar:
         
         if optionsManagement is not None:
             st.session_state['management'] = list_optionsManagement.index(optionsManagement)
+    """
+    st.text("En construcción")
         
 
 pg = st.navigation([
     st.Page(pageHome, title='Inicio', icon='🏠'),
     st.Page(pageDpto, title='Departamento'),
-    st.Page(pageMpio, title='Municipio'),
-    st.Page(pageLocal, title='Local'),
+    #st.Page(pageMpio, title='Municipio'),
+    #st.Page(pageLocal, title='Local'),
 ])
 pg.run()
 
 st.divider()
 
-with st.expander('**Clasificación de la aptitud agropecuaria**', icon='🏆'):
+with st.expander("**Clasificación de la aptitud agropecuaria**", icon="🏆"):
     with st.container(border=True):
-        for i in range(0,len(list_markdownLabelAptitude),1):
-            st.markdown(list_markdownLabelAptitude[i], unsafe_allow_html=True)
+        for key, value in DICT_APTITUDE.items():
+            st.markdown(f"{value['Emoji']} **{value['Name']}:** {value['Description']}", unsafe_allow_html=True)
