@@ -103,16 +103,24 @@ def get_df_info_dpto(gdf_dpto_item: gpd.GeoDataFrame, dict_aptitude_label: dict,
 
     return df_info_dpto
 
-def get_df_top_dpto_mpio(gdf_dpto_item: gpd.GeoDataFrame, gdf_dane_dpto_mpio: gpd.GeoDataFrame, aptitude: int) -> pd.DataFrame:
+def get_df_result_dpto_mpio(gdf_dpto_item: gpd.GeoDataFrame, gdf_dane_dpto_mpio: gpd.GeoDataFrame, dict_code_mpio: dict, aptitude: int) -> pd.DataFrame:
 
     gdf_dpto_item_aptitude: gpd.GeoDataFrame = gdf_dpto_item[gdf_dpto_item["APTITUD"] == aptitude]
 
     df_top_dpto_mpio: pd.DataFrame = gdf_dpto_item_aptitude.groupby(["MPIO_CODE"], as_index=False)["AREA_HECTAREAS"].sum()
     df_top_dpto_mpio["AREA_KM2"] = df_top_dpto_mpio["AREA_HECTAREAS"]*0.01
-    df_top_dpto_mpio.sort_values(by="AREA_KM2", ascending=False, inplace=True)
+    #df_top_dpto_mpio.sort_values(by="AREA_KM2", ascending=False, inplace=True)
+    df_top_dpto_mpio["MUNICIPIO"] = df_top_dpto_mpio["MPIO_CODE"].replace(dict_code_mpio)
     df_top_dpto_mpio.reset_index(drop=True, inplace=True)
 
     df_top_dpto_mpio = df_top_dpto_mpio.merge(gdf_dane_dpto_mpio[["MPIO_CODE", "MPIO_AREA"]], on="MPIO_CODE", how="left")
     df_top_dpto_mpio["AREA_PERCENT"] = (df_top_dpto_mpio["AREA_KM2"]/df_top_dpto_mpio["MPIO_AREA"])*100
 
     return df_top_dpto_mpio
+
+def get_df_result_top_dpto_mpio(df_result_dpto_mpio: pd.DataFrame, column: str, top: int):
+
+    df_result_top_dpto_mpio = df_result_dpto_mpio.sort_values(by=column, ascending=False)
+    df_result_top_dpto_mpio.reset_index(drop=True, inplace=True)
+
+    return df_result_top_dpto_mpio.head(top)

@@ -15,7 +15,7 @@ def get_label_with_emoji(NAME: str, ICON: str) -> str:
     else:
         return f":{NAME}"
     
-def get_dict_dpto_mpio(df_mpio_filter: pd.DataFrame):
+def get_dict_dpto_mpio(df_mpio_filter: pd.DataFrame) -> tuple[dict, list]:
 
     dict_mpio, list_mpio = {}, []
 
@@ -76,10 +76,12 @@ if not os.path.exists(r"assets/DICT_DPTO.pickle") or not os.path.exists(r"assets
     
     for index, row in df_dpto.iterrows():
         dict_mpio, list_mpio = get_dict_dpto_mpio(df_mpio_filter=df_mpio[df_mpio["DEPARTAMENTO"] == row["DEPARTAMENTO"]])
+        dict_code_mpio = {value: key for key, value in dict_mpio.items()}
 
         DICT_DPTO[row["DEPARTAMENTO"]] = {
             "DPTO_CODE": row["DPTO_CODE"],
             "DICT_MPIO": dict_mpio,
+            "DICT_CODE_MPIO": dict_code_mpio,
             "LIST_MPIO_NAME": list_mpio
         }
 
