@@ -1,6 +1,7 @@
 import geopandas as gpd
 import pandas as pd
-import s3fs
+import streamlit as st
+import plotly.express as px
 
 font = {
     "url": "https://fonts.googleapis.com/css2?family=Mansalva&display=swap",
@@ -103,24 +104,63 @@ def get_df_info_dpto(gdf_dpto_item: gpd.GeoDataFrame, dict_aptitude_label: dict,
 
     return df_info_dpto
 
-def get_df_result_dpto_mpio(gdf_dpto_item: gpd.GeoDataFrame, gdf_dane_dpto_mpio: gpd.GeoDataFrame, dict_code_mpio: dict, aptitude: int) -> pd.DataFrame:
+def get_df_result_dpto_mpio(gdf_dpto_item: gpd.GeoDataFrame, gdf_dane_dpto_mpio: gpd.GeoDataFrame, dict_code_mpio: dict, aptitude: int) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     gdf_dpto_item_aptitude: gpd.GeoDataFrame = gdf_dpto_item[gdf_dpto_item["APTITUD"] == aptitude]
 
-    df_top_dpto_mpio: pd.DataFrame = gdf_dpto_item_aptitude.groupby(["MPIO_CODE"], as_index=False)["AREA_HECTAREAS"].sum()
-    df_top_dpto_mpio["AREA_KM2"] = df_top_dpto_mpio["AREA_HECTAREAS"]*0.01
-    #df_top_dpto_mpio.sort_values(by="AREA_KM2", ascending=False, inplace=True)
-    df_top_dpto_mpio["MUNICIPIO"] = df_top_dpto_mpio["MPIO_CODE"].replace(dict_code_mpio)
-    df_top_dpto_mpio.reset_index(drop=True, inplace=True)
+    df_result_dpto_mpio: pd.DataFrame = gdf_dpto_item_aptitude.groupby(["MPIO_CODE"], as_index=False)["AREA_HECTAREAS"].sum()
+    df_result_dpto_mpio["AREA_KM2"] = df_result_dpto_mpio["AREA_HECTAREAS"]*0.01
+    df_result_dpto_mpio["MUNICIPIO"] = df_result_dpto_mpio["MPIO_CODE"].replace(dict_code_mpio)
+    df_result_dpto_mpio.reset_index(drop=True, inplace=True)
 
-    df_top_dpto_mpio = df_top_dpto_mpio.merge(gdf_dane_dpto_mpio[["MPIO_CODE", "MPIO_AREA"]], on="MPIO_CODE", how="left")
-    df_top_dpto_mpio["AREA_PERCENT"] = (df_top_dpto_mpio["AREA_KM2"]/df_top_dpto_mpio["MPIO_AREA"])*100
+    df_result_dpto_mpio = df_result_dpto_mpio.merge(gdf_dane_dpto_mpio[["MPIO_CODE", "MPIO_AREA"]], on="MPIO_CODE", how="left")
+    df_result_dpto_mpio["AREA_PERCENT"] = (df_result_dpto_mpio["AREA_KM2"]/df_result_dpto_mpio["MPIO_AREA"])*100
 
-    return df_top_dpto_mpio
+    df_km2_dpto_mpio = get_df_column_dpto_mpio(df_result_dpto_mpio, "AREA_KM2")
+    df_percent_dpto_mpio = get_df_column_dpto_mpio(df_result_dpto_mpio, "AREA_PERCENT")
 
-def get_df_result_top_dpto_mpio(df_result_dpto_mpio: pd.DataFrame, column: str, top: int):
+    return df_km2_dpto_mpio, df_percent_dpto_mpio
 
-    df_result_top_dpto_mpio = df_result_dpto_mpio.sort_values(by=column, ascending=False)
-    df_result_top_dpto_mpio.reset_index(drop=True, inplace=True)
+def get_df_column_dpto_mpio(df_result_dpto_mpio: pd.DataFrame, column: str) -> pd.DataFrame:
 
-    return df_result_top_dpto_mpio.head(top)
+    df_column_dpto_mpio = df_result_dpto_mpio.sort_values(by=column, ascending=False)
+    df_column_dpto_mpio.reset_index(drop=True, inplace=True)
+    df_column_dpto_mpio = df_column_dpto_mpio[["MPIO_CODE", "MUNICIPIO", "MPIO_AREA", "AREA_HECTAREAS", "AREA_KM2", "AREA_PERCENT"]]
+
+    return df_column_dpto_mpio
+
+#%% potly
+
+def get_bar_chart_top_dpto_mpio(df_column_dpto_mpio: pd.DataFrame, column: str, column_label: str, top: int, color_aptitude: str, title: str):
+
+    fig = px.bar(
+         df_column_dpto_mpio,
+         x=column,
+         y="MUNICIPIO",
+         orientation="h",
+         labels={"MUNICIPIO": "Municipio", column: column_label},
+         color_discrete_sequence=[color_aptitude]
+    )
+
+    fig.update_yaxes(autorange="reversed")
+
+    fig.update_layout(
+        title={
+            "text": title,
+            "x": 0.5,
+            "xanchor": "center"
+        },
+        title_font_size=16
+    )
+                            
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={"modeBarButtonsToRemove": ["zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d", "zoom2d", "pan2d", "select2d", "lasso2d"],
+                "displaylogo": False
+                }
+    )
+
+    return
+
+

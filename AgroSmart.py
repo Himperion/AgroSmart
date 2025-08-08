@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import geopandas as gpd
+import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 import folium, yaml, s3fs
@@ -38,12 +39,32 @@ selectCoordinateOptions = ["Sistema sexagesimal GMS", "Sistema decimal GD"]
     
 def pageHome():
 
-    tab1, tab2 = st.tabs(["Descripción", "Equipo humano"])
+    tab1, tab2, tab3 = st.tabs(["📰 Noticias", "✏️ Descripción", "👨‍💻 Equipo humano"])
 
     with tab1:
-        st.markdown(DescriptiveText.TEXT0.value)
+        st.subheader("Transformación del campo con el poder de los datos", divider="green")
+        st.markdown(DescriptiveText.TEXT1.value)
+        st.video("https://www.youtube.com/watch?v=dDd5t-oA-M8")
+        st.badge("25 mar 2025", color="gray")
+
+        st.subheader("Entre los 16 mejores del país", divider="green")
+        st.markdown(DescriptiveText.TEXT2.value)
+        st.image("assets/DAU_001.jpg", caption="Equipos fase final DAU 2024")
+        st.markdown(
+            "<p style='font-size: 0.9em; color: gray;'>🔗<a href='https://www.datos.gov.co/stories/s/Concurso-Datos-a-la-U-2024/dbae-ugdy/' target='_blank'>Concurso Datos a la U</a></p>",
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            "<p style='font-size: 0.9em; color: gray;'>🔗<a href='https://www.datos.gov.co/stories/en/s/Resultados-Convocatoria-Datos-a-la-U-/ehij-b5mp' target='_blank'>Resultados Convocatoria Datos a la U</a></p>",
+            unsafe_allow_html=True
+        )
+
+        st.badge("22 nov 2024", color="gray") 
 
     with tab2:
+        st.markdown(DescriptiveText.TEXT0.value)
+        
+    with tab3:
         with st.container(border=True):
             col1, col2 = st.columns([0.3, 0.7], vertical_alignment="center")
 
@@ -214,60 +235,51 @@ def pageDpto():
 
                     if len(aptitude_select) == 1:
                         dpto_tab3_sub1 = st.tabs(options_aptitude)
-                        
+                        iter_tab = [dpto_tab3_sub1]
                     elif len(aptitude_select) == 2:
                         dpto_tab3_sub1, dpto_tab3_sub2 = st.tabs(options_aptitude)
+                        iter_tab = [dpto_tab3_sub1, dpto_tab3_sub2]
                     elif len(aptitude_select) == 3:
                         dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3 = st.tabs(options_aptitude)
+                        iter_tab = [dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3]
                     elif len(aptitude_select) == 4:
                         dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4 = st.tabs(options_aptitude)
+                        iter_tab = [dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4]
                     elif len(aptitude_select) == 5:
                         dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4, dpto_tab3_sub5 = st.tabs(options_aptitude)
+                        iter_tab = [dpto_tab3_sub1, dpto_tab3_sub2, dpto_tab3_sub3, dpto_tab3_sub4, dpto_tab3_sub5]
 
                     dict_code_mpio = DICT_DPTO[options_dpto]["DICT_CODE_MPIO"]
                     top = 15
 
-                    if dpto_tab3_sub1 is not None:
-                        with dpto_tab3_sub1:
-                            df_result_dpto_mpio = funtions.get_df_result_dpto_mpio(gdf_dpto_item, gdf_dane_dpto_mpio, dict_code_mpio, aptitude_select[0])
-                            label: str = DICT_APTITUDE[aptitude_select[0]]["Label"]
-                            color_aptitude = DICT_APTITUDE_COLOR[aptitude_select[0]]
+                    for i in range(0,len(iter_tab),1):
+                        with iter_tab[i]:
+                            df_km2_dpto_mpio, df_percent_dpto_mpio = funtions.get_df_result_dpto_mpio(gdf_dpto_item, gdf_dane_dpto_mpio, dict_code_mpio, aptitude_select[i])
 
-                            fig = px.bar(
-                                funtions.get_df_result_top_dpto_mpio(df_result_dpto_mpio, "AREA_KM2", top),
-                                x="AREA_KM2",
-                                y="MUNICIPIO",
-                                orientation="h",
-                                labels={"AREA_KM2": "Área (km²)", "MUNICIPIO": "Municipio"},
-                                color_discrete_sequence=[color_aptitude]
-                            )
+                            label: str = DICT_APTITUDE[aptitude_select[i]]["Label"]
+                            color_aptitude = DICT_APTITUDE_COLOR[aptitude_select[i]]
 
-                            fig.update_yaxes(autorange="reversed")
-
-                            fig.update_layout(
-                                title={
-                                    "text": f"TOP {top} ÁREA POR {label.upper()} POR MUNICIPIOS EN {options_dpto}",
-                                    "x": 0.5,
-                                    "xanchor": "center"
-                                },
-                                title_font_size=16
-                            )
+                            funtions.get_bar_chart_top_dpto_mpio(df_column_dpto_mpio=df_km2_dpto_mpio.head(top),
+                                                                 column="AREA_KM2",
+                                                                 column_label="Área (km²)",
+                                                                 top=top,
+                                                                 color_aptitude=color_aptitude,
+                                                                 title=f"TOP {top} ÁREA POR {label.upper()} POR MUNICIPIOS EN {options_dpto}")
                             
-                            st.plotly_chart(
-                                fig,
-                                use_container_width=True,
-                                config={
-                                    "modeBarButtonsToRemove": ["zoomIn2d",
-                                                               "zoomOut2d",
-                                                               "autoScale2d",
-                                                               "resetScale2d",
-                                                               "zoom2d",
-                                                               "pan2d",
-                                                               "select2d",
-                                                               "lasso2d"],
-                                    "displaylogo": False
-                                }
-                            )
+                            funtions.get_bar_chart_top_dpto_mpio(df_column_dpto_mpio=df_percent_dpto_mpio.head(top),
+                                                                 column="AREA_PERCENT",
+                                                                 column_label="Porcentaje de área municipal (%)",
+                                                                 top=top,
+                                                                 color_aptitude=color_aptitude,
+                                                                 title=f"TOP {top} PORCENTAJE DEL ÁREA MUNICIPAL CON {label.upper()} EN {options_dpto}")
+                            
+
+                            #st.dataframe(df_km2_dpto_mpio)
+                            #st.dataframe(df_percent_dpto_mpio)
+
+                            
+
+
                             
 
                             

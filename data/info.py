@@ -37,3 +37,9 @@ class DescriptiveText(Enum):
     donde mide la aptitud agropecuaria del territorio nacional. También se usan datos abiertos del **geoportal DANE**
     para la división política de los departamentos, municipios y sus respectivas áreas territoriales.
     """
+    TEXT1 = """
+    En el marco del Sistema Unificado de Información Rural y Agropecuaria (Snuira), se llevó a cabo un webinar en el que se exploró cómo los Datos Abiertos están contribuyendo a transformar la toma de decisiones y a generar nuevas oportunidades para el desarrollo rural en Colombia. Este enfoque promueve la innovación, la transparencia y la transformación digital del sector. Durante el evento, Fernando Gonzales compartió la experiencia del uso de los datos abiertos a través de AgroSmart-App.
+    """
+    TEXT2 = """
+    El equipo de AgroSmart-App ha llegado a la fase final de la convocatoria Datos a la U. Los 16 mejores equipos del país presentaron sus proyectos ante un panel de jurados especializados en las instalaciones del Ministerio TIC.
+    """
